@@ -1,3 +1,4 @@
+using InvoiceAI.Api.Services;
 using Microsoft.Extensions.AI;
 using OpenAI;
 
@@ -12,6 +13,8 @@ builder.Services.AddChatClient(
     new OpenAIClient(apiKey).GetChatClient(model).AsIChatClient());
 
 builder.Services.AddOpenApi();
+builder.Services.AddScoped<InvoiceExtractor>();
+
 var app = builder.Build();
 app.MapOpenApi();
 
@@ -35,6 +38,22 @@ app.MapPost("/api/ai/ask", async (AskRequest req, IChatClient ai, CancellationTo
         outputTokens = response.Usage?.OutputTokenCount
     });
 });
+
+app.MapPost("/api/invoices/extract", async (IFormFile file, InvoiceExtractor extractor, CancellationToken ct) =>
+    {
+        if (file.Length == 0 || !file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+            return Results.BadRequest("PDF file is required.");
+
+        await using var stream = file.OpenReadStream();
+        var text = PdfTextExtractor.Extract(stream);
+
+        if (string.IsNullOrWhiteSpace(text))
+            return Results.BadRequest("No text found. The PDF may be scanned.");
+
+        var result = await extractor.ExtractAsync(text, ct);
+        return Results.Ok(result);
+    })
+    .DisableAntiforgery();
 
 app.Run();
 

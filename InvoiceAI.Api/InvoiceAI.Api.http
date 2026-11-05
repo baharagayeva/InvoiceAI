@@ -32,3 +32,36 @@ Content-Type: application/json
   "question": "What is factoring?",
   "temperature": 1.0
 }
+
+### Faktura 1 (EN)
+POST {{baseUrl}}/api/invoices/extract
+Content-Type: multipart/form-data; boundary=B
+
+--B
+Content-Disposition: form-data; name="file"; filename="invoice_01_en.pdf"
+Content-Type: application/pdf
+
+< ./TestData/invoice_01_en.pdf
+--B--
+
+### Faktura 2 (AZ)
+POST {{baseUrl}}/api/invoices/extract
+Content-Type: multipart/form-data; boundary=B
+
+--B
+Content-Disposition: form-data; name="file"; filename="invoice_02_az.pdf"
+Content-Type: application/pdf
+
+< ./TestData/invoice_02_az.pdf
+--B--
+
+### Faktura 3 (çətin)
+POST {{baseUrl}}/api/invoices/extract
+Content-Type: multipart/form-data; boundary=B
+
+--B
+Content-Disposition: form-data; name="file"; filename="invoice_03_tricky.pdf"
+Content-Type: application/pdf
+
+< ./TestData/invoice_03_tricky.pdf
+--B--
