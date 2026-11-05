@@ -1,0 +1,34 @@
+@baseUrl = http://localhost:5297
+
+### 1. Sadə sual
+POST {{baseUrl}}/api/ai/ask
+Content-Type: application/json
+
+{
+  "question": "What is factoring?"
+}
+
+### 2. Azərbaycanca eyni sual
+POST {{baseUrl}}/api/ai/ask
+Content-Type: application/json
+
+{
+  "question": "Faktorinq nədir?"
+}
+
+### 3. Hallüsinasiya testi
+POST {{baseUrl}}/api/ai/ask
+Content-Type: application/json
+
+{
+  "question": "What was Ferrum Capital's revenue in 2025?"
+}
+
+### 4. Temperature testi
+POST {{baseUrl}}/api/ai/ask
+Content-Type: application/json
+
+{
+  "question": "What is factoring?",
+  "temperature": 1.0
+}
