@@ -34,7 +34,7 @@ Content-Type: application/json
 }
 
 ### Faktura 1 (EN)
-POST {{baseUrl}}/api/invoices/extract
+POST {{baseUrl}}/api/invoices
 Content-Type: multipart/form-data; boundary=B
 
 --B
@@ -45,7 +45,7 @@ Content-Type: application/pdf
 --B--
 
 ### Faktura 2 (AZ)
-POST {{baseUrl}}/api/invoices/extract
+POST {{baseUrl}}/api/invoices
 Content-Type: multipart/form-data; boundary=B
 
 --B
@@ -56,7 +56,7 @@ Content-Type: application/pdf
 --B--
 
 ### Faktura 3 (çətin)
-POST {{baseUrl}}/api/invoices/extract
+POST {{baseUrl}}/api/invoices
 Content-Type: multipart/form-data; boundary=B
 
 --B
@@ -65,3 +65,6 @@ Content-Type: application/pdf
 
 < ./TestData/invoice_03_tricky.pdf
 --B--
+
+### Bütün fakturalar
+GET {{baseUrl}}/api/invoices

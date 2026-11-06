@@ -1,4 +1,6 @@
+using InvoiceAI.Api.Data;
 using InvoiceAI.Api.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using OpenAI;
 
@@ -14,6 +16,9 @@ builder.Services.AddChatClient(
 
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<InvoiceExtractor>();
+
+builder.Services.AddDbContext<AppDbContext>(o =>
+    o.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
 var app = builder.Build();
 app.MapOpenApi();
@@ -39,7 +44,8 @@ app.MapPost("/api/ai/ask", async (AskRequest req, IChatClient ai, CancellationTo
     });
 });
 
-app.MapPost("/api/invoices/extract", async (IFormFile file, InvoiceExtractor extractor, CancellationToken ct) =>
+app.MapPost("/api/invoices", async (
+        IFormFile file, InvoiceExtractor extractor, AppDbContext db, CancellationToken ct) =>
     {
         if (file.Length == 0 || !file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
             return Results.BadRequest("PDF file is required.");
@@ -51,9 +57,34 @@ app.MapPost("/api/invoices/extract", async (IFormFile file, InvoiceExtractor ext
             return Results.BadRequest("No text found. The PDF may be scanned.");
 
         var result = await extractor.ExtractAsync(text, ct);
-        return Results.Ok(result);
+        if (result.Invoice is null)
+            return Results.UnprocessableEntity(result.Warnings);
+
+        var invoice = Invoice.From(file.FileName, text, result);
+        db.Invoices.Add(invoice);
+        await db.SaveChangesAsync(ct);
+
+        return Results.Created($"/api/invoices/{invoice.Id}", new
+        {
+            invoice.Id,
+            invoice.Status,
+            invoice.Warnings,
+            result.InputTokens,
+            result.OutputTokens,
+            result.ElapsedMs
+        });
     })
     .DisableAntiforgery();
+
+app.MapGet("/api/invoices", async (AppDbContext db, CancellationToken ct) =>
+    await db.Invoices.AsNoTracking()
+        .OrderByDescending(i => i.CreatedAt)
+        .Select(i => new
+        {
+            i.Id, i.InvoiceNumber, i.SellerName, i.BuyerName,
+            i.TotalAmount, i.Currency, i.IssueDate, i.DueDate, i.Status
+        })
+        .ToListAsync(ct));
 
 app.Run();
 
