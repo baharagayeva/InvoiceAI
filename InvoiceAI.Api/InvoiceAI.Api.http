@@ -129,3 +129,33 @@ POST {{baseUrl}}/api/qa
 Content-Type: application/json
 
 { "question": "Hansı fakturaların ödəniş tarixi keçib?" }
+
+### 1. RAG-ın uğursuz olduğu sual
+POST {{baseUrl}}/api/agent
+Content-Type: application/json
+
+{ "question": "Hansı fakturaların ödəniş tarixi keçib?" }
+
+### 2. Risk sualı
+POST {{baseUrl}}/api/agent
+Content-Type: application/json
+
+{ "question": "Hansı alıcı üzrə riskimiz ən böyükdür?" }
+
+### 3. Şərt sualı (search_documents gözlənilir)
+POST {{baseUrl}}/api/agent
+Content-Type: application/json
+
+{ "question": "Nord Trade-in fakturalarında faiz və ya cərimə dərəcəsi nədir?" }
+
+### 4. Çoxaddımlı sual (iki alət gözlənilir)
+POST {{baseUrl}}/api/agent
+Content-Type: application/json
+
+{ "question": "Vaxtı keçmiş fakturalar üzrə gecikmə cəriməsi şərtləri nədir?" }
+
+### 5. Uyğunsuz sual (alət çağırılmamalıdır)
+POST {{baseUrl}}/api/agent
+Content-Type: application/json
+
+{ "question": "Dünənki futbol matçının nəticəsi nədir?" }

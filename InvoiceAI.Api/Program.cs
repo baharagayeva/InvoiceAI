@@ -19,7 +19,9 @@ var embeddingModel = builder.Configuration["OpenAI:EmbeddingModel"]
 // --- AI servisləri ---
 var openAi = new OpenAIClient(apiKey);
 
-builder.Services.AddChatClient(openAi.GetChatClient(model).AsIChatClient());
+builder.Services.AddChatClient(openAi.GetChatClient(model).AsIChatClient())
+    .UseFunctionInvocation(configure: c =>
+        c.IncludeDetailedErrors = builder.Environment.IsDevelopment());
 builder.Services.AddEmbeddingGenerator(
     openAi.GetEmbeddingClient(embeddingModel).AsIEmbeddingGenerator());
 
@@ -31,6 +33,8 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 builder.Services.AddScoped<InvoiceExtractor>();
 builder.Services.AddScoped<InvoiceIndexer>();
 builder.Services.AddScoped<InvoiceQaService>();
+builder.Services.AddScoped<InvoiceTools>();
+builder.Services.AddScoped<InvoiceAgent>();
 
 builder.Services.AddOpenApi();
 
@@ -139,6 +143,9 @@ app.MapGet("/api/search", async (
 
 app.MapPost("/api/qa", async (QaRequest req, InvoiceQaService qa, CancellationToken ct) =>
     Results.Ok(await qa.AskAsync(req.Question, ct)));
+
+app.MapPost("/api/agent", async (QaRequest req, InvoiceAgent agent, CancellationToken ct) =>
+    Results.Ok(await agent.AskAsync(req.Question, ct)));
 
 app.Run();
 

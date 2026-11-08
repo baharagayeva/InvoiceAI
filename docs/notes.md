@@ -5,6 +5,8 @@
   - Qiymət: giriş $0.10 / 1M token, çıxış $0.50 / 1M token
   - Temperature: yalnız default (1) dəstəklənir, 0 göndərəndə xəta verir.
     Sabitlik structured output + sistem promptundakı qaydalar + koddakı validasiya ilə təmin olunur.
+  - Chat Completions API-də tool-lar reasoning ilə birlikdə işləmir:
+    agent üçün reasoning_effort = none qoyuldu. Alternativ: Responses API.
 - Embedding modeli: text-embedding-3-small
   - Qiymət: $0.02 / 1M token, ölçü: 1536
   - Large ($0.13, 3072 ölçü) əvəzinə seçildi: qısa sənədlər üçün keyfiyyət fərqi azdır, 6.5 dəfə ucuzdur.
@@ -83,4 +85,53 @@ LLM yalnız bu mənbələrə əsaslanıb cavab verir, mənbə id-lərini qaytar�
   - Model yalnız 6 parçanı görür; tarixləri olan parçalar onların arasında yox idi.
   - Bugünkü tarix verilməmişdi, model onu fərz etdi (gizli fərziyyə, maliyyədə qəbuledilməz).
   - Düzgün cavab (2026-11-08): INV-2026-0451 və NTS/26/1183.
-- Qərar: tarix, məbləğ, sayma suallarına RAG yox, bazaya strukturlaşdırılmış sorğu lazımdır → Addım 4 (tool calling).
+- Qərar: tarix, məbləğ, sayma suallarına RAG yox, bazaya strukturlaşdırılmış sorğu lazımdır → Addım 4.
+
+## Addım 4: agent və tool calling
+Alətlər (hamısı read-only, parametrli; LLM xam SQL yazmır):
+- find_invoices: şirkət, gecikmə, tarix aralığı, minimum məbləğ üzrə filter (maks. 50 sətir)
+- get_buyer_exposure: alıcı (debitor) VÖEN-i üzrə ümumi və gecikmiş məbləğ
+- search_documents: semantik axtarış, istəyə görə faktura nömrələri ilə məhdudlaşdırılır (hybrid search)
+  Bugünkü tarix sistem promptunda verilir, gecikmə günlərini kod hesablayır.
+
+### Ölçmə 1
+
+| # | Sual | Nəticə | Alətlər | Tokenlər | Vaxt |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Hansı fakturaların ödəniş tarixi keçib | Düzgün: NTS 52 gün, INV-0451 8 gün | find_invoices(overdueOnly) | 1178 / 107 | 5.7 s |
+| 2 | Ən böyük risk hansı alıcıdadır | Uğursuz: alət xəta verdi, model uydurmadı | get_buyer_exposure | 973 / 49 | 2.6 s |
+| 3 | Nord Trade-in faiz/cərimə dərəcəsi | Düzgün, rolları ilə | search_documents (sorğunu özü EN yazdı) | 1757 / 117 | 5.8 s |
+| 4 | Vaxtı keçənlərin cərimə şərtləri | Rəqəmlər düzgün, amma yol səhv | yalnız search_documents | 1636 / 195 | 4.2 s |
+| 5 | Futbol matçının nəticəsi | Düzgün: məlumat yoxdur | heç biri | 471 / 11 | 1.4 s |
+
+### Tapılan problemlər və düzəlişlər
+- Sual 2: xəta görünmürdü, çünki agent loop istisnanı tutub modelə ötürürdü.
+  - IncludeDetailedErrors (yalnız Development) + cavabda toolResults əlavə edildi.
+  - Real səbəb: EF Core record konstruktorundan sonra OrderBy-ı SQL-ə çevirə bilmir.
+    Həll: SQL-də anonim tip, record-a çevirmə yaddaşda.
+  - Dərs: AI sistemində observability olmasa, səhvin səbəbini tapmaq çox çətindir.
+- Sual 4: cavab təsadüfən düzgün idi. Model gecikmə statusunu yoxlamadı və
+  "digər fakturalarda cərimə yoxdur" dedi (AQ-0917-də var, sadəcə gecikməyib).
+  - Səbəb: reasoning söndürülüb, çoxaddımlı planlama zəifdir.
+  - Həll: promptda qayda (əvvəl find_invoices, sonra search_documents) +
+    search_documents-ə invoiceNumbers filteri.
+  - Dərs: yalnız cavabı yox, agentin keçdiyi yolu (toolCalls) da yoxlamaq lazımdır.
+
+### Ölçmə 2 (düzəlişlərdən sonra)
+
+| # | Sual | Nəticə | Alətlər | Tokenlər | Vaxt |
+| --- | --- | --- | --- | --- | --- |
+| 2 | Ən böyük risk hansı alıcıdadır | Düzgün: Gunesh Logistics, 47 691 AZN, hamısı gecikib | get_buyer_exposure | 1270 / 90 | 5.4 s |
+| 4 | Vaxtı keçənlərin cərimə şərtləri | Düzgün: INV-0451 0.1%/gün (max 10%), NTS 1.5%/ay, gecikmə günləri ilə | find_invoices(overdueOnly) → search_documents(invoiceNumbers) | 2877 / 217 | 6.8 s |
+
+- Alət nəticələri context-ə düşdüyü üçün çoxaddımlı sual daha bahalıdır (≈ $0.0004).
+
+## Məlum məhdudiyyətlər
+- PdfPig yalnız mətni seçilə bilən PDF-ləri oxuyur. Skan olunmuş PDF üçün OCR lazımdır.
+- get_buyer_exposure fərqli valyutaları bir yerdə toplayır. Həll: valyutaya görə də qruplaşdırmaq.
+- get_buyer_exposure faktura nömrələrini qaytarmır.
+- Ödəniş statusu yoxdur: bütün fakturalar ödənilməmiş sayılır.
+
+## Müşahidələr
+- Eyni şirkət fərqli adlarla gəlir ("Nord Trade Solutions MMC" / "LLC"), VÖEN isə eynidir.
+  Qərar: şirkətləri ada görə yox, VÖEN-ə görə birləşdirmək.
