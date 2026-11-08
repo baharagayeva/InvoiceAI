@@ -30,6 +30,7 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 // --- Öz servislərimiz ---
 builder.Services.AddScoped<InvoiceExtractor>();
 builder.Services.AddScoped<InvoiceIndexer>();
+builder.Services.AddScoped<InvoiceQaService>();
 
 builder.Services.AddOpenApi();
 
@@ -136,6 +137,10 @@ app.MapGet("/api/search", async (
     return Results.Ok(results);
 });
 
+app.MapPost("/api/qa", async (QaRequest req, InvoiceQaService qa, CancellationToken ct) =>
+    Results.Ok(await qa.AskAsync(req.Question, ct)));
+
 app.Run();
 
 record AskRequest(string Question, float? Temperature = null);
+record QaRequest(string Question);

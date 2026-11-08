@@ -33,20 +33,54 @@
   Nəticə: "Subtotal + VAT does not match total" xəbərdarlığı, status "NeedsReview".
   Deməli model səhv etsə belə sistem onu tutur və insan yoxlamasına göndərir (human-in-the-loop).
 
-## Addım 3A: semantic search, ilk ölçmə (chunk = 800 simvol)
-Hər faktura 1 chunk oldu (mətn 800 simvoldan qısadır).
+## Addım 3A: semantic search
+
+### Ölçmə 1: chunk = 800 simvol (hər faktura 1 chunk)
 
 | Sorğu | Birinci nəticə | Distance | Qiymət |
 | --- | --- | --- | --- |
 | late payment penalty | INV-2026-0451 | 0.723 | Düzgün, amma 2-ci ilə fərq çox kiçik (0.742) |
 | gecikmə cəriməsi | AQ-0917 | 0.672 | AZ sorğu AZ fakturanı seçdi |
 | ərzaq məhsulları | AQ-0917 | 0.617 | Düzgün, amma satıcı adında "Məhsulları" sözü var |
-| Nord Trade faiz dərəcəsi | AQ-0917 | 0.457 | Səhv: faiz NTS/26/1183-dədir |
+| Nord Trade faiz dərəcəsi | AQ-0917 | 0.457 | NTS/26/1183 tapılmadı |
 | futbol matçının nəticəsi | AQ-0917 | 0.698 | Uyğunsuz sual düzgün cavabdan daha yaxın çıxdı |
 
-Nəticələr:
-1. Dil təsiri: AZ sorğular demək olar ki, həmişə AZ sənədi birinci qaytarır.
-2. Bütöv sənədin bir vektoru mənaları qarışdırır, konkret bənd (cərimə, faiz) itir.
-3. Distance üzrə sabit hədd qoymaq olmur: uyğunsuz sual 0.698, düzgün cavab 0.723.
+### Ölçmə 2: chunk = 300 simvol (9 chunk)
 
-Növbəti təcrübə: chunk ölçüsünü 300 simvola endirmək.
+| Sorğu | Birinci nəticə | Distance | Qiymət |
+| --- | --- | --- | --- |
+| late payment penalty | INV-2026-0451 #2 | 0.576 | Yaxşılaşdı: dəqiq cərimə bəndi tapıldı |
+| gecikmə cəriməsi | AQ-0917 #1 | 0.657 | Düzgün, amma EN fakturalardakı cərimələr top 3-də yoxdur |
+| interest on overdue balance | INV-2026-0451 #2 | 0.607 | Düzgün cavab (NTS, 0.609) ikinci oldu |
+| Nord Trade faiz dərəcəsi | AQ-0917 | 0.458 | NTS hələ də top 3-də yoxdur |
+| food products | AQ-0917 #0 | 0.799 | Düzgün, amma "Araz Qida Məhsulları" hərfən "food products"-dur |
+| futbol matçının nəticəsi | AQ-0917 #1 | 0.710 | Düzgün cavabdan (0.799) yaxın çıxdı |
+
+Tapılan xəta: chunker sözləri ortadan kəsirdi ("iymət Məbləğ"). Sətir əsaslı chunker ilə düzəldildi.
+
+Nəticələr:
+1. Kiçik chunk eyni dildə işləyir: dəqiq bəndi tapır, distance azalır.
+2. Dillər arası axtarış zəifdir: AZ sorğu EN sənədi tapmır və əksinə.
+3. Distance üzrə sabit hədd qoymaq olmur. "Tapılmadı" qərarını LLM verməlidir.
+4. Nord Trade iki rolda çıxış edir (AQ-0917-də alıcı, NTS-də satıcı). Düzgün cavab ikisini də göstərməlidir.
+
+## Addım 3B: RAG (multi-query + mənbə istinadı)
+Axın: LLM sualı EN və AZ sorğulara çevirir → 3 sorğu ilə axtarış → top 6 chunk →
+LLM yalnız bu mənbələrə əsaslanıb cavab verir, mənbə id-lərini qaytarır, cavab yoxdursa found = false.
+
+| # | Sual | Nəticə | Tokenlər | Vaxt |
+| --- | --- | --- | --- | --- |
+| 1 | Nord Trade-in faiz/cərimə dərəcəsi | Düzgün: NTS 1.5%/ay (satıcı), AQ 0.05%/gün (alıcı) | 1151 / 342 | 7.0 s |
+| 2 | Xazar Metal gecikdirsə nə qədər faiz | Düzgün: NTS, 1.5%/ay (Xazar orada alıcıdır) | 919 / 241 | 5.2 s |
+| 3 | What food products were sold and to whom? (EN) | Düzgün: yağ və düyü, Nord Trade-ə; cavab ingiliscə | 1087 / 125 | 3.9 s |
+| 4 | Hansı fakturalar Ferrum Capital-a təhvil verilib | Düzgün: INV-2026-0451 | 1016 / 150 | 4.3 s |
+| 5 | Futbol matçının nəticəsi | Düzgün: found = false | 1167 / 127 | 3.7 s |
+| 6 | Hansı fakturaların ödəniş tarixi keçib | Uğursuz (gözlənilən) | 1114 / 414 | 7.5 s |
+
+- Multi-query dil problemini həll etdi: NTS 1-ci sualda S1 oldu (0.445).
+- Bir sual ≈ $0.0003, 4–7 saniyə (iki LLM çağırışı: trade-off).
+- 6-cı sual niyə uğursuz oldu:
+  - Model yalnız 6 parçanı görür; tarixləri olan parçalar onların arasında yox idi.
+  - Bugünkü tarix verilməmişdi, model onu fərz etdi (gizli fərziyyə, maliyyədə qəbuledilməz).
+  - Düzgün cavab (2026-11-08): INV-2026-0451 və NTS/26/1183.
+- Qərar: tarix, məbləğ, sayma suallarına RAG yox, bazaya strukturlaşdırılmış sorğu lazımdır → Addım 4 (tool calling).

@@ -92,3 +92,40 @@ GET {{baseUrl}}/api/search?q=food products
 
 ### Yeni: dil fərqi
 GET {{baseUrl}}/api/search?q=interest on overdue balance
+
+
+### 1. İki mənalı sual (iki faktura gözlənilir)
+POST {{baseUrl}}/api/qa
+Content-Type: application/json
+
+{ "question": "Nord Trade-in fakturalarında faiz və ya cərimə dərəcəsi nədir?" }
+
+### 2. Məntiq tələb edən sual
+POST {{baseUrl}}/api/qa
+Content-Type: application/json
+
+{ "question": "Xazar Metal ödənişi gecikdirsə, nə qədər faiz ödəməli olacaq?" }
+
+### 3. Dillər arası
+POST {{baseUrl}}/api/qa
+Content-Type: application/json
+
+{ "question": "What food products were sold and to whom?" }
+
+### 4. Biznes sualı
+POST {{baseUrl}}/api/qa
+Content-Type: application/json
+
+{ "question": "Hansı fakturalar Ferrum Capital-a təhvil verilib?" }
+
+### 5. Uyğunsuz sual
+POST {{baseUrl}}/api/qa
+Content-Type: application/json
+
+{ "question": "Dünənki futbol matçının nəticəsi nədir?" }
+
+### 6. RAG-ın zəif yeri (qəsdən)
+POST {{baseUrl}}/api/qa
+Content-Type: application/json
+
+{ "question": "Hansı fakturaların ödəniş tarixi keçib?" }
