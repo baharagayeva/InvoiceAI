@@ -29,6 +29,8 @@ public class Invoice
     public string Status { get; set; } = InvoiceStatus.Processed;
     public List<string> Warnings { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    
+    public List<InvoiceChunk> Chunks { get; set; } = [];
 
     public static Invoice From(string fileName, string rawText, ExtractionResult result)
     {

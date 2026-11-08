@@ -68,3 +68,27 @@ Content-Type: application/pdf
 
 ### Bütün fakturalar
 GET {{baseUrl}}/api/invoices
+
+### Reindex
+POST {{baseUrl}}/api/invoices/reindex
+
+### 1. İngiliscə sual, cərimə şərtləri
+GET {{baseUrl}}/api/search?q=late payment penalty
+
+### 2. Eyni sual azərbaycanca
+GET {{baseUrl}}/api/search?q=gecikmə cəriməsi
+
+### 3. Fakturada olmayan söz: "ərzaq"
+GET {{baseUrl}}/api/search?q=ərzaq məhsulları
+
+### 4. Şirkət adı + mövzu
+GET {{baseUrl}}/api/search?q=Nord Trade faiz dərəcəsi
+
+### 5. Heç bir fakturaya aid olmayan sual
+GET {{baseUrl}}/api/search?q=futbol matçının nəticəsi
+
+### Yeni: şirkət adında olmayan sözlə semantik test
+GET {{baseUrl}}/api/search?q=food products
+
+### Yeni: dil fərqi
+GET {{baseUrl}}/api/search?q=interest on overdue balance
