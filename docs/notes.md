@@ -126,11 +126,50 @@ Alətlər (hamısı read-only, parametrli; LLM xam SQL yazmır):
 
 - Alət nəticələri context-ə düşdüyü üçün çoxaddımlı sual daha bahalıdır (≈ $0.0004).
 
+## Addım 5A: loglama və evaluation
+
+### Xərc loglaması
+- UsageLoggingChatClient: DelegatingChatClient middleware, hər LLM çağırışı üçün
+  model, tokenlər, vaxt və təxmini xərc loglanır.
+- Pipeline sırası: UseFunctionInvocation → UsageLogging (daxildə), yəni agent loop-unun
+  hər ayrı çağırışı loglanır.
+- "Vaxtı keçənlərin cərimə şərtləri" sualı: 3 LLM çağırışı (544 → 779 → 1550 giriş tokeni),
+  cəmi $0.000394, ≈ 7.5 s. Hər addımda əvvəlki alət nəticələri yenidən göndərildiyi üçün giriş tokenləri artır.
+
+### Testlər
+- Unit testlər (LLM-siz, pulsuz): TextChunker, o cümlədən sətirlərin kəsilməməsi üçün regression test.
+- Evals (real LLM, Category=Eval):
+  - 3 extraction eval: nömrə, ümumi məbləğ, ödəniş tarixi, dueDateCalculated, warnings boş
+  - 4 agent eval: cavabdakı faktlar + agentin yolu (toolCalls) yoxlanılır
+  - Mövzudan kənar sual: LLM-as-a-judge ilə yoxlanılır ("məlumat yoxdur deyir, nəticə uydurmur")
+
+### Pass rate (hər qaçış 7 test)
+
+| Mərhələ | Qaçış 1 | Qaçış 2 | Qaçış 3 |
+| --- | --- | --- | --- |
+| İlk versiya | 6/7 | 6/7 | 7/7 |
+| Düzəlişdən sonra | 7/7 | 7/7 | 7/7 |
+
+- İlk versiyada futbol testi 1/3 keçdi: agent bəzən əvvəlcə alət çağırıb sonra "məlumat yoxdur" deyirdi.
+  - Test çox sərt idi: davranışı yox, implementasiya detalını yoxlayırdı.
+  - Düzəliş: promptda qayda (mövzudan kənar suallarda alət çağırma) +
+    test: maksimum 1 alət çağırışı + LLM hakim ilə davranış yoxlaması.
+  - Nəticə: agent alət çağırmadan cavab verir (563 / 15 token), digər testlər qırılmadı.
+- Bütöv eval qaçışı: 12 LLM çağırışı, ≈ $0.0015, ≈ 17 s.
+
+### Build xəbərdarlıqları
+- NU1903: Microsoft.OpenApi 2.0.0-da yüksək təhlükəli zəiflik → düzəldilmiş versiya birbaşa əlavə edildi.
+- MSB3277: EF Core 10.0.4 / 10.0.14 konflikti. Səbəb: Design paketi PrivateAssets=all ilə
+  gəlir və test layihəsinə ötürülmür. Həll: API-də EF paketləri açıq versiya ilə.
+
 ## Məlum məhdudiyyətlər
 - PdfPig yalnız mətni seçilə bilən PDF-ləri oxuyur. Skan olunmuş PDF üçün OCR lazımdır.
 - get_buyer_exposure fərqli valyutaları bir yerdə toplayır. Həll: valyutaya görə də qruplaşdırmaq.
 - get_buyer_exposure faktura nömrələrini qaytarmır.
 - Ödəniş statusu yoxdur: bütün fakturalar ödənilməmiş sayılır.
+- Evals development bazasını istifadə edir və bugünkü tarixdən asılıdır
+  (14 yanvar 2027-dən sonra AQ-0917 də gecikəcək). Növbəti addım: Testcontainers ilə ayrıca test bazası.
+- Embedding çağırışları xərc loguna daxil deyil.
 
 ## Müşahidələr
 - Eyni şirkət fərqli adlarla gəlir ("Nord Trade Solutions MMC" / "LLC"), VÖEN isə eynidir.

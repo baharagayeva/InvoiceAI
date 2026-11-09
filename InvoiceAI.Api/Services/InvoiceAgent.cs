@@ -26,6 +26,8 @@ public class InvoiceAgent(IChatClient ai, InvoiceTools tools)
                             - If a question combines status or dates (overdue, due soon, amounts) with contract terms,
                             first call find_invoices, then call search_documents with invoiceNumbers from that result.
                             - Always mention invoice numbers. A company can be a seller or a buyer: say which.
+                            - If the question is clearly unrelated to invoices, companies or factoring,
+                            do not call any tools. Say the data does not contain this information.
                             - If tools return nothing relevant, say the data does not contain this information.
                             - Answer in the same language as the question. Be brief.
                             """;

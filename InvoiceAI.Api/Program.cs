@@ -21,7 +21,10 @@ var openAi = new OpenAIClient(apiKey);
 
 builder.Services.AddChatClient(openAi.GetChatClient(model).AsIChatClient())
     .UseFunctionInvocation(configure: c =>
-        c.IncludeDetailedErrors = builder.Environment.IsDevelopment());
+        c.IncludeDetailedErrors = builder.Environment.IsDevelopment())
+    .Use((inner, sp) => new UsageLoggingChatClient(
+        inner, sp.GetRequiredService<ILogger<UsageLoggingChatClient>>()));
+
 builder.Services.AddEmbeddingGenerator(
     openAi.GetEmbeddingClient(embeddingModel).AsIEmbeddingGenerator());
 
@@ -151,3 +154,5 @@ app.Run();
 
 record AskRequest(string Question, float? Temperature = null);
 record QaRequest(string Question);
+
+public partial class Program;
