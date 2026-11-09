@@ -8,8 +8,28 @@ services:
       POSTGRES_DB: invoiceai
     ports:
       - "5433:5432"
-    volumes: 
+    volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d invoiceai"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    container_name: invoiceai-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=invoiceai;Username=postgres;Password=postgres"
+      Database__MigrateOnStartup: "true"
+      OpenAI__ApiKey: ${OPENAI_API_KEY:?OPENAI_API_KEY is not set in .env}
+      OpenAI__Model: ${OPENAI_MODEL:-gpt-6-luna}
+      OpenAI__EmbeddingModel: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+    ports:
+      - "8080:8080"
 
 volumes:
   pgdata:

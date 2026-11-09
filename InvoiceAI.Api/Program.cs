@@ -42,6 +42,14 @@ builder.Services.AddScoped<InvoiceAgent>();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// Demo və Docker üçün: konfiqurasiyada açıq şəkildə yandırılıbsa, migration-ları tətbiq et
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
+}
+
 app.MapOpenApi();
 
 // --- Endpointlər ---
